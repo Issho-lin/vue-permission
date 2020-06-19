@@ -4,6 +4,7 @@ import store from '@/store'
 
 Vue.use(VueRouter)
 
+// 通用页面：不需要守卫，可直接访问
 export const constRoutes = [
     {
         path: '/login',
@@ -19,6 +20,7 @@ export const constRoutes = [
     }
 ]
 
+// 权限页面：受保护页面，要求用户登录并拥有访问权限的角色才能访问
 export const asyncRoutes = [
     {
         path: '/about',
@@ -55,16 +57,18 @@ router.beforeEach(async (to, from, next) => {
                 next()
             } else {
                 try {
-                    
+                    // 先请求获取用户信息
                     const { roles } = await store.dispatch('user/getInfo')
+                     // 根据当前用户角色过滤出可访问路由
                     const accessRoutes = await store.dispatch('permission/generateRoutes', roles)
-
+                    // 添加至路由表
                     router.addRoutes(accessRoutes)
 
                     // 继续切换路由，再次进入守卫，确保addRoutes完成
                     next({ ...to, replace: true })
 
                 } catch (err) {
+                    // 出错需重置令牌并重新登录（令牌过期、网络错误等原因）
                     await store.dispatch('user/resetToken')
                     next(`/login?redirect=${to.path}`)
                     console.log(err)
@@ -72,9 +76,12 @@ router.beforeEach(async (to, from, next) => {
             }
         }
     } else {
+        // 未登录
         if (whiteList.includes(to.path)) {
+            // 白名单中路由直接放行
             next()
         } else {
+            // 重定向至登录页
             next(`/login?redirect=${to.path}`)
         }
     }
